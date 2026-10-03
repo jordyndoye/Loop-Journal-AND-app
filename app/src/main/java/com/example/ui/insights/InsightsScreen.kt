@@ -19,7 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material3.Button
@@ -532,7 +532,7 @@ private fun OneExperimentSuggestionCard(
         horizontalArrangement = Arrangement.Center
       ) {
         Icon(
-          imageVector = if (isPromoted) Icons.Default.Check else Icons.Default.ArrowForward,
+          imageVector = if (isPromoted) Icons.Default.Check else Icons.AutoMirrored.Filled.ArrowForward,
           contentDescription = null,
           modifier = Modifier.size(16.dp)
         )

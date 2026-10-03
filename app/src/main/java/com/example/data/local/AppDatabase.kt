@@ -40,7 +40,7 @@ abstract class AppDatabase : RoomDatabase() {
           AppDatabase::class.java,
           DB_NAME
         )
-          .fallbackToDestructiveMigration()
+          .fallbackToDestructiveMigration(dropAllTables = true)
           .build()
         INSTANCE = instance
         instance
@@ -103,7 +103,7 @@ abstract class AppDatabase : RoomDatabase() {
           AppDatabase::class.java,
           DB_NAME
         )
-          .fallbackToDestructiveMigration()
+          .fallbackToDestructiveMigration(dropAllTables = true)
           .build()
         INSTANCE = instance
         return instance
