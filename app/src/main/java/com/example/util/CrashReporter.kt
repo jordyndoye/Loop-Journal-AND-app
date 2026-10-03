@@ -6,30 +6,28 @@ import android.util.Log
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 
 /**
- * Robust Crashlytics and telemetry manager to monitor, log, and report
- * unexpected app terminations and non-fatal errors across user devices.
+ * Diagnostics and Crashlytics manager to monitor, log, and report
+ * app events, stability telemetry, and non-fatal exceptions.
  */
 object CrashReporter {
 
   private const val TAG = "CrashReporter"
+  private val customKeys = mutableMapOf<String, Any>()
   private var isInitialized = false
 
   fun init(context: Context) {
     try {
       val crashlytics = FirebaseCrashlytics.getInstance()
-      crashlytics.setCrashlyticsCollectionEnabled(true)
+      setCustomKey("device_model", "${Build.MANUFACTURER} ${Build.MODEL}")
+      setCustomKey("os_version", Build.VERSION.RELEASE ?: "unknown")
+      setCustomKey("sdk_int", Build.VERSION.SDK_INT)
+      setCustomKey("today_date", DateTimeUtils.todayIso())
 
-      // Set standard diagnostics keys
-      crashlytics.setCustomKey("device_model", "${Build.MANUFACTURER} ${Build.MODEL}")
-      crashlytics.setCustomKey("os_version", Build.VERSION.RELEASE ?: "unknown")
-      crashlytics.setCustomKey("sdk_int", Build.VERSION.SDK_INT)
-      crashlytics.setCustomKey("today_date", DateTimeUtils.todayIso())
-
-      setupUncaughtExceptionHandler(crashlytics)
+      setupUncaughtExceptionHandler()
       isInitialized = true
       log("CrashReporter initialized successfully on ${Build.MANUFACTURER} ${Build.MODEL} (API ${Build.VERSION.SDK_INT})")
     } catch (e: Throwable) {
-      Log.w(TAG, "Crashlytics could not be initialized or is running in non-Firebase environment", e)
+      Log.w(TAG, "CrashReporter could not be initialized with Crashlytics", e)
     }
   }
 
@@ -52,6 +50,7 @@ object CrashReporter {
   }
 
   fun setCustomKey(key: String, value: String) {
+    customKeys[key] = value
     try {
       if (isInitialized) {
         FirebaseCrashlytics.getInstance().setCustomKey(key, value)
@@ -60,6 +59,7 @@ object CrashReporter {
   }
 
   fun setCustomKey(key: String, value: Int) {
+    customKeys[key] = value
     try {
       if (isInitialized) {
         FirebaseCrashlytics.getInstance().setCustomKey(key, value)
@@ -68,6 +68,7 @@ object CrashReporter {
   }
 
   fun setCustomKey(key: String, value: Boolean) {
+    customKeys[key] = value
     try {
       if (isInitialized) {
         FirebaseCrashlytics.getInstance().setCustomKey(key, value)
@@ -75,13 +76,13 @@ object CrashReporter {
     } catch (_: Throwable) {}
   }
 
-  private fun setupUncaughtExceptionHandler(crashlytics: FirebaseCrashlytics) {
+  private fun setupUncaughtExceptionHandler() {
     val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
     Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
       try {
-        crashlytics.setCustomKey("crashing_thread", thread.name)
-        crashlytics.log("Fatal crash intercepted on thread: ${thread.name} - ${throwable.message}")
-        crashlytics.recordException(throwable)
+        setCustomKey("crashing_thread", thread.name)
+        log("Fatal crash intercepted on thread: ${thread.name} - ${throwable.message}")
+        recordException(throwable)
       } catch (_: Throwable) {}
 
       // Delegate to default Android crash handler
