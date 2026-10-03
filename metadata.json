@@ -1,0 +1,6 @@
+{
+  "name": "Loop Journal",
+  "description": "A personal operating system for day observation, identifying where days break, and testing small adjustments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="booth_black">#161310</color>
+    <color name="booth_paper">#EFE6D6</color>
+    <color name="booth_ink">#1A1410</color>
+    <color name="booth_amber">#C58A3A</color>
+    <color name="booth_dim">#6B6258</color>
+    <color name="booth_graphite">#3E3832</color>
+    <color name="booth_surface">#1F1B17</color>
+    <color name="booth_border">#2E2721</color>
+</resources>

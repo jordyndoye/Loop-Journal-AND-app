@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer calibration circle (subtle dim) -->
+    <path
+        android:pathData="M 54 28 A 26 26 0 1 1 53.9 28"
+        android:strokeColor="#2F2923"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000" />
+
+    <!-- 7-Segment Reel Segments arranged in a loop -->
+    <!-- Segment 1: Top (Captured - Amber) -->
+    <path
+        android:pathData="M 51 30 L 57 30 A 24 24 0 0 1 71 39 L 66 43 A 18 18 0 0 0 54 36 Z"
+        android:fillColor="#C58A3A" />
+
+    <!-- Segment 2: Top Right (Paper) -->
+    <path
+        android:pathData="M 72.5 41 L 76.5 46 A 24 24 0 0 1 78 61 L 72 60 A 18 18 0 0 0 68 47 Z"
+        android:fillColor="#EFE6D6" />
+
+    <!-- Segment 3: Bottom Right (Paper) -->
+    <path
+        android:pathData="M 77 64 L 74 69 A 24 24 0 0 1 60 77 L 58 71 A 18 18 0 0 0 71 64 Z"
+        android:fillColor="#EFE6D6" />
+
+    <!-- Segment 4: Bottom (Paper) -->
+    <path
+        android:pathData="M 56 78 L 52 78 A 24 24 0 0 1 37 70 L 41 65 A 18 18 0 0 0 53 72 Z"
+        android:fillColor="#EFE6D6" />
+
+    <!-- Segment 5: Bottom Left (Paper) -->
+    <path
+        android:pathData="M 35 68 L 31 63 A 24 24 0 0 1 30 47 L 36 49 A 18 18 0 0 0 39 63 Z"
+        android:fillColor="#EFE6D6" />
+
+    <!-- Segment 6: Top Left (Dim graphite empty segment) -->
+    <path
+        android:pathData="M 31 44 L 35 39 A 24 24 0 0 1 48 31 L 49 37 A 18 18 0 0 0 37 43 Z"
+        android:fillColor="#4A423B" />
+
+    <!-- Center Spindle & Hub -->
+    <path
+        android:pathData="M 54 47 A 7 7 0 1 1 53.9 47"
+        android:strokeColor="#C58A3A"
+        android:strokeWidth="2.5"
+        android:fillColor="#161310" />
+
+    <path
+        android:pathData="M 54 51 A 3 3 0 1 1 53.9 51"
+        android:fillColor="#EFE6D6" />
+
+</vector>

@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Loop Journal</string>
+    <string name="splash_tagline">The tape is rolling.</string>
+    <string name="splash_sub">OBSERVE • BREAKPOINT • ADJUST</string>
+    <string name="system_title">My System</string>
+    <string name="today_title">Today</string>
+    <string name="journal_title">Journal</string>
+    <string name="insights_title">Insights</string>
+    <string name="experiments_title">Experiments</string>
+</resources>
