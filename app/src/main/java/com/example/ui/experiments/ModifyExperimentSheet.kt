@@ -3,7 +3,6 @@ package com.example.ui.experiments
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -50,8 +49,30 @@ fun ModifyExperimentSheet(
   onConfirm: (modifiedIntervention: String, notes: String) -> Unit,
   sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
-  var intervention by remember(experiment) { mutableStateOf(experiment.singleIntervention) }
-  var notes by remember(experiment) { mutableStateOf(experiment.observationNotes) }
+  ModifyExperimentSheet(
+    title = experiment.title,
+    number = experiment.number,
+    currentIntervention = experiment.singleIntervention,
+    currentNotes = experiment.observationNotes,
+    onDismiss = onDismiss,
+    onConfirm = onConfirm,
+    sheetState = sheetState
+  )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ModifyExperimentSheet(
+  title: String,
+  number: Int,
+  currentIntervention: String,
+  currentNotes: String,
+  onDismiss: () -> Unit,
+  onConfirm: (modifiedIntervention: String, notes: String) -> Unit,
+  sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+) {
+  var intervention by remember(currentIntervention) { mutableStateOf(currentIntervention) }
+  var notes by remember(currentNotes) { mutableStateOf(currentNotes) }
 
   ModalBottomSheet(
     onDismissRequest = onDismiss,
@@ -77,7 +98,7 @@ fun ModifyExperimentSheet(
         .navigationBarsPadding()
     ) {
       Text(
-        text = "CYCLE ADJUSTMENT // EXPERIMENT #${experiment.number}",
+        text = "CYCLE ADJUSTMENT // EXPERIMENT #$number",
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
         fontSize = 11.sp,
@@ -98,7 +119,7 @@ fun ModifyExperimentSheet(
       Spacer(modifier = Modifier.height(4.dp))
 
       Text(
-        text = "Adjust the variable parameters and reset the 7-day test cycle.",
+        text = "Adjust the variable parameters and record changes.",
         fontFamily = FontFamily.SansSerif,
         fontSize = 12.sp,
         color = BoothDim
@@ -187,7 +208,7 @@ fun ModifyExperimentSheet(
           .testTag("btn_confirm_modify_experiment")
       ) {
         Text(
-          text = "Commit Modification & Reset Cycle",
+          text = "Commit Modification",
           fontFamily = FontFamily.Serif,
           fontWeight = FontWeight.SemiBold,
           fontSize = 14.sp

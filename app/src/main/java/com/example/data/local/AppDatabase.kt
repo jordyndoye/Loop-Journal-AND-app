@@ -5,9 +5,12 @@ import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.data.local.dao.DayDao
 import com.example.data.local.entity.BlockOutcomeEntity
 import com.example.data.local.entity.DayRecordEntity
+import com.example.data.local.entity.InsightsDraftEntity
 import com.example.data.local.entity.JournalEntryEntity
 import com.example.data.local.entity.SystemBlockEntity
 import com.example.data.repository.RoutineRepository
@@ -19,9 +22,10 @@ import kotlinx.coroutines.withContext
     DayRecordEntity::class,
     BlockOutcomeEntity::class,
     JournalEntryEntity::class,
-    SystemBlockEntity::class
+    SystemBlockEntity::class,
+    InsightsDraftEntity::class
   ],
-  version = 3,
+  version = 4,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -29,6 +33,14 @@ abstract class AppDatabase : RoomDatabase() {
 
   companion object {
     const val DB_NAME = "loop_journal_v2.db"
+
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+          "CREATE TABLE IF NOT EXISTS `insights_draft` (`id` TEXT NOT NULL, `rawJson` TEXT NOT NULL, `fingerprint` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+        )
+      }
+    }
 
     @Volatile
     private var INSTANCE: AppDatabase? = null
@@ -40,6 +52,7 @@ abstract class AppDatabase : RoomDatabase() {
           AppDatabase::class.java,
           DB_NAME
         )
+          .addMigrations(MIGRATION_3_4)
           .fallbackToDestructiveMigration(dropAllTables = true)
           .build()
         INSTANCE = instance
@@ -50,10 +63,6 @@ abstract class AppDatabase : RoomDatabase() {
     /**
      * Safely opens and initializes the Room database from a background coroutine
      * after the UI becomes visible.
-     *
-     * If opening throws (e.g. database corruption, migration failures, or SQLite lock),
-     * it invokes [recreateDatabase] to delete the corrupted database file, recreate an empty
-     * database from scratch, and cleanly reinitialize persistence without ever crashing the app.
      */
     suspend fun openSafely(context: Context): AppDatabase? = withContext(Dispatchers.IO) {
       val appContext = context.applicationContext
@@ -103,6 +112,7 @@ abstract class AppDatabase : RoomDatabase() {
           AppDatabase::class.java,
           DB_NAME
         )
+          .addMigrations(MIGRATION_3_4)
           .fallbackToDestructiveMigration(dropAllTables = true)
           .build()
         INSTANCE = instance

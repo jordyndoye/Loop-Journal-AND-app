@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.repository.RoutineRepository
 import com.example.domain.model.Experiment
 import com.example.domain.model.ExperimentStatus
+import com.example.domain.model.ExperimentSuggestion
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +19,7 @@ class ExperimentsViewModel(
 
   private val _uiState = MutableStateFlow(
     ExperimentsUiState(
+      suggestedExperiment = repository.suggestedExperiment.value,
       activeExperiment = repository.activeExperiment.value,
       pastExperiments = repository.pastExperiments.value,
       notesInput = repository.activeExperiment.value?.observationNotes ?: ""
@@ -28,19 +30,42 @@ class ExperimentsViewModel(
   init {
     viewModelScope.launch {
       combine(
+        repository.suggestedExperiment,
         repository.activeExperiment,
         repository.pastExperiments
-      ) { active, past ->
-        Pair(active, past)
-      }.collect { (active, past) ->
+      ) { suggestion, active, past ->
+        Triple(suggestion, active, past)
+      }.collect { (suggestion, active, past) ->
         _uiState.update { current ->
           current.copy(
+            suggestedExperiment = suggestion,
             activeExperiment = active,
             pastExperiments = past,
             notesInput = if (current.notesInput.isBlank()) active?.observationNotes ?: "" else current.notesInput
           )
         }
       }
+    }
+  }
+
+  fun keepSuggestion(suggestion: ExperimentSuggestion) {
+    repository.keepSuggestedExperiment(suggestion)
+    _uiState.update {
+      it.copy(feedbackToast = "Suggestion #${suggestion.number} KEPT: Recorded into archive.")
+    }
+  }
+
+  fun modifySuggestion(suggestion: ExperimentSuggestion, newIntervention: String, notes: String) {
+    repository.modifySuggestedExperiment(suggestion, newIntervention, notes)
+    _uiState.update {
+      it.copy(feedbackToast = "Suggestion #${suggestion.number} MODIFIED: Updated intervention archived.")
+    }
+  }
+
+  fun abandonSuggestion(suggestion: ExperimentSuggestion, notes: String = "") {
+    repository.abandonSuggestedExperiment(suggestion, notes)
+    _uiState.update {
+      it.copy(feedbackToast = "Suggestion #${suggestion.number} ABANDONED: Discarded.")
     }
   }
 

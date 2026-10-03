@@ -70,7 +70,10 @@ fun TodayScreen(
   // Open the database safely only after Today is visible
   LaunchedEffect(Unit) {
     withContext(Dispatchers.IO) {
-      com.example.data.local.AppDatabase.openSafely(context)
+      val db = com.example.data.local.AppDatabase.openSafely(context)
+      if (db != null) {
+        com.example.data.repository.RoutineRepository.instance.checkAndTriggerSilentInsightsDraft()
+      }
     }
   }
 

@@ -18,13 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.Science
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -39,14 +33,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.domain.model.BreakpointChain
-import com.example.domain.model.ExperimentSuggestion
+import com.example.domain.model.DayRecord
 import com.example.domain.model.TapeSynthesis
 import com.example.ui.theme.BoothAmber
 import com.example.ui.theme.BoothBlack
 import com.example.ui.theme.BoothBorder
 import com.example.ui.theme.BoothBorderSubtle
 import com.example.ui.theme.BoothDim
-import com.example.ui.theme.BoothInk
 import com.example.ui.theme.BoothPaper
 import com.example.ui.theme.BoothSurface
 import com.example.ui.theme.BoothSurfaceElevated
@@ -58,6 +51,7 @@ fun InsightsScreen(
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val synthesis = uiState.synthesis
+  val hasSevenDays = uiState.capturedDaysCount >= 7
 
   Column(
     modifier = modifier
@@ -75,69 +69,46 @@ fun InsightsScreen(
       contentPadding = PaddingValues(bottom = 90.dp),
       verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-      if (synthesis != null && synthesis.capturedDaysCount >= 7) {
+      if (hasSevenDays && synthesis != null) {
         // Section 1: Playback Note
         item {
           PlaybackNoteCard(synthesis = synthesis)
         }
 
         // Section 2: Possible Chain Language, Never Diagnosis
-        item {
-          Column(modifier = Modifier.padding(top = 4.dp)) {
-            Text(
-              text = "POSSIBLE BREAKPOINT CHAINS",
-              fontFamily = FontFamily.SansSerif,
-              fontWeight = FontWeight.SemiBold,
-              fontSize = 11.sp,
-              letterSpacing = 1.3.sp,
-              color = BoothDim
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-              text = "Mechanical chain hypotheses observed across recorded tapes. Causal patterns, never clinical diagnosis.",
-              fontFamily = FontFamily.SansSerif,
-              fontWeight = FontWeight.Normal,
-              fontSize = 11.sp,
-              color = BoothDim
-            )
+        if (synthesis.chains.isNotEmpty()) {
+          item {
+            Column(modifier = Modifier.padding(top = 4.dp)) {
+              Text(
+                text = "POSSIBLE BREAKPOINT CHAINS",
+                fontFamily = FontFamily.SansSerif,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 11.sp,
+                letterSpacing = 1.3.sp,
+                color = BoothDim
+              )
+              Spacer(modifier = Modifier.height(2.dp))
+              Text(
+                text = "Mechanical chain hypotheses observed across recorded tapes. Causal patterns, never clinical diagnosis.",
+                fontFamily = FontFamily.SansSerif,
+                fontWeight = FontWeight.Normal,
+                fontSize = 11.sp,
+                color = BoothDim
+              )
+            }
+          }
+
+          items(items = synthesis.chains, key = { it.id }) { chain ->
+            BreakpointChainCard(chain = chain)
           }
         }
 
-        items(items = synthesis.chains, key = { it.id }) { chain ->
-          BreakpointChainCard(chain = chain)
-        }
-
-        // Section 3: One Experiment Suggestion
+        // Section 3: Woke Against Before-Sleep Comparison
         item {
-          Column(modifier = Modifier.padding(top = 6.dp)) {
-            Text(
-              text = "ONE EXPERIMENT SUGGESTION",
-              fontFamily = FontFamily.SansSerif,
-              fontWeight = FontWeight.SemiBold,
-              fontSize = 11.sp,
-              letterSpacing = 1.3.sp,
-              color = BoothDim
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-              text = "Only one small change tested at a time. Derived from the primary friction chain.",
-              fontFamily = FontFamily.SansSerif,
-              fontWeight = FontWeight.Normal,
-              fontSize = 11.sp,
-              color = BoothDim
-            )
-          }
-        }
-
-        item {
-          OneExperimentSuggestionCard(
-            suggestion = synthesis.oneSuggestedExperiment,
-            isPromoted = uiState.isExperimentPromoted,
-            feedbackMessage = uiState.feedbackMessage,
-            onPromote = { viewModel.promoteSuggestedExperiment() }
-          )
+          WokeAgainstBeforeSleepCard(capturedDays = uiState.capturedDays)
         }
       } else {
+        // Under 7 captured days: show "Not enough days yet."
         item {
           Box(
             modifier = Modifier
@@ -383,21 +354,15 @@ private fun ChainStepRow(
 }
 
 @Composable
-private fun OneExperimentSuggestionCard(
-  suggestion: ExperimentSuggestion,
-  isPromoted: Boolean,
-  feedbackMessage: String?,
-  onPromote: () -> Unit
-) {
+private fun WokeAgainstBeforeSleepCard(capturedDays: List<DayRecord>) {
   Column(
     modifier = Modifier
       .fillMaxWidth()
-      .background(BoothSurfaceElevated, RoundedCornerShape(10.dp))
-      .border(1.dp, BoothAmber.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+      .background(BoothSurface, RoundedCornerShape(10.dp))
+      .border(1.dp, BoothBorder, RoundedCornerShape(10.dp))
       .padding(16.dp)
-      .testTag("one_experiment_suggestion_card")
+      .testTag("woke_against_before_sleep_card")
   ) {
-    // Header
     Row(
       modifier = Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.SpaceBetween,
@@ -407,154 +372,133 @@ private fun OneExperimentSuggestionCard(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
       ) {
-        Icon(
-          imageVector = Icons.Outlined.Science,
-          contentDescription = null,
-          tint = BoothAmber,
-          modifier = Modifier.size(16.dp)
+        Box(
+          modifier = Modifier
+            .size(8.dp)
+            .clip(CircleShape)
+            .background(BoothAmber)
         )
         Text(
-          text = "EXPERIMENT #${suggestion.number} • ${suggestion.targetDurationDays}-DAY CYCLE",
+          text = "WOKE AGAINST BEFORE-SLEEP",
           fontFamily = FontFamily.SansSerif,
           fontWeight = FontWeight.SemiBold,
-          fontSize = 10.sp,
-          letterSpacing = 1.sp,
+          fontSize = 11.sp,
+          letterSpacing = 1.2.sp,
           color = BoothAmber
         )
       }
-
-      Box(
-        modifier = Modifier
-          .clip(RoundedCornerShape(4.dp))
-          .background(BoothAmber.copy(alpha = 0.15f))
-          .padding(horizontal = 6.dp, vertical = 2.dp)
-      ) {
-        Text(
-          text = "ONE VARIABLE",
-          fontFamily = FontFamily.SansSerif,
-          fontWeight = FontWeight.Bold,
-          fontSize = 9.sp,
-          color = BoothAmber
-        )
-      }
+      Text(
+        text = "SPINE RATINGS (1–5)",
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Medium,
+        fontSize = 10.sp,
+        color = BoothDim
+      )
     }
 
-    Spacer(modifier = Modifier.height(8.dp))
-
-    // Title in Serif
+    Spacer(modifier = Modifier.height(6.dp))
     Text(
-      text = suggestion.title,
-      fontFamily = FontFamily.Serif,
-      fontWeight = FontWeight.Normal,
-      fontSize = 18.sp,
-      lineHeight = 24.sp,
-      color = BoothPaper
-    )
-
-    Spacer(modifier = Modifier.height(10.dp))
-
-    // Hypothesis
-    Text(
-      text = "HYPOTHESIS",
+      text = "Observed morning woke ratings compared against evening before-sleep ratings across recorded days.",
       fontFamily = FontFamily.SansSerif,
-      fontWeight = FontWeight.SemiBold,
-      fontSize = 10.sp,
-      letterSpacing = 0.8.sp,
+      fontSize = 11.sp,
       color = BoothDim
     )
-    Spacer(modifier = Modifier.height(2.dp))
-    Text(
-      text = suggestion.hypothesis,
-      fontFamily = FontFamily.SansSerif,
-      fontSize = 12.sp,
-      lineHeight = 17.sp,
-      color = BoothPaper
-    )
 
-    Spacer(modifier = Modifier.height(8.dp))
+    Spacer(modifier = Modifier.height(14.dp))
 
-    // Single Intervention
-    Text(
-      text = "SINGLE INTERVENTION",
-      fontFamily = FontFamily.SansSerif,
-      fontWeight = FontWeight.SemiBold,
-      fontSize = 10.sp,
-      letterSpacing = 0.8.sp,
-      color = BoothDim
-    )
-    Spacer(modifier = Modifier.height(2.dp))
-    Text(
-      text = suggestion.singleIntervention,
-      fontFamily = FontFamily.SansSerif,
-      fontSize = 12.sp,
-      lineHeight = 17.sp,
-      color = BoothAmber
-    )
-
-    Spacer(modifier = Modifier.height(8.dp))
-
-    // Metric to watch
-    Text(
-      text = "METRIC TO WATCH",
-      fontFamily = FontFamily.SansSerif,
-      fontWeight = FontWeight.SemiBold,
-      fontSize = 10.sp,
-      letterSpacing = 0.8.sp,
-      color = BoothDim
-    )
-    Spacer(modifier = Modifier.height(2.dp))
-    Text(
-      text = suggestion.metricToWatch,
-      fontFamily = FontFamily.SansSerif,
-      fontSize = 12.sp,
-      lineHeight = 17.sp,
-      color = BoothPaper
-    )
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    // Button
-    Button(
-      onClick = onPromote,
-      colors = ButtonDefaults.buttonColors(
-        containerColor = if (isPromoted) BoothSurface else BoothAmber,
-        contentColor = if (isPromoted) BoothAmber else BoothInk
-      ),
-      shape = RoundedCornerShape(8.dp),
-      border = if (isPromoted) androidx.compose.foundation.BorderStroke(1.dp, BoothAmber) else null,
+    // Table Header
+    Row(
       modifier = Modifier
         .fillMaxWidth()
-        .height(46.dp)
-        .testTag("btn_stage_experiment")
+        .padding(bottom = 6.dp),
+      horizontalArrangement = Arrangement.SpaceBetween
     ) {
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
-      ) {
-        Icon(
-          imageVector = if (isPromoted) Icons.Default.Check else Icons.AutoMirrored.Filled.ArrowForward,
-          contentDescription = null,
-          modifier = Modifier.size(16.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-          text = if (isPromoted) "STAGED TO EXPERIMENTS TAB" else "STAGE FOR TESTING // SEND TO EXPERIMENTS",
-          fontFamily = FontFamily.Serif,
-          fontWeight = FontWeight.SemiBold,
-          fontSize = 12.sp,
-          letterSpacing = 0.5.sp
-        )
-      }
+      Text(
+        text = "DATE",
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 10.sp,
+        letterSpacing = 0.8.sp,
+        color = BoothDim,
+        modifier = Modifier.weight(1f)
+      )
+      Text(
+        text = "WOKE (E • M • S)",
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 10.sp,
+        letterSpacing = 0.8.sp,
+        color = BoothPaper,
+        modifier = Modifier.weight(1.2f)
+      )
+      Text(
+        text = "BEFORE-SLEEP (E • M • S)",
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 10.sp,
+        letterSpacing = 0.8.sp,
+        color = BoothDim,
+        modifier = Modifier.weight(1.3f)
+      )
     }
 
-    if (feedbackMessage != null) {
-      Spacer(modifier = Modifier.height(8.dp))
+    HorizontalDivider(color = BoothBorderSubtle, thickness = 0.8.dp)
+    Spacer(modifier = Modifier.height(6.dp))
+
+    if (capturedDays.isEmpty()) {
       Text(
-        text = feedbackMessage,
+        text = "No recorded spine ratings yet.",
         fontFamily = FontFamily.SansSerif,
         fontSize = 11.sp,
-        color = BoothAmber
+        color = BoothDim,
+        modifier = Modifier.padding(vertical = 8.dp)
       )
+    } else {
+      capturedDays.take(14).forEach { day ->
+        val wakeStr = if (day.hasWakeReadings) {
+          "${day.wakeEnergy ?: "-"} • ${day.wakeMood ?: "-"} • ${day.wakeStress ?: "-"}"
+        } else {
+          "--"
+        }
+        val sleepStr = if (day.hasSleepReadings) {
+          "${day.sleepEnergy ?: "-"} • ${day.sleepMood ?: "-"} • ${day.sleepStress ?: "-"}"
+        } else {
+          "--"
+        }
+
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 5.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Text(
+            text = day.dateIso,
+            fontFamily = FontFamily.SansSerif,
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+            color = BoothDim,
+            modifier = Modifier.weight(1f)
+          )
+          Text(
+            text = wakeStr,
+            fontFamily = FontFamily.SansSerif,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 11.sp,
+            color = if (day.hasWakeReadings) BoothPaper else BoothDim,
+            modifier = Modifier.weight(1.2f)
+          )
+          Text(
+            text = sleepStr,
+            fontFamily = FontFamily.SansSerif,
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+            color = if (day.hasSleepReadings) BoothAmber else BoothDim,
+            modifier = Modifier.weight(1.3f)
+          )
+        }
+      }
     }
   }
 }

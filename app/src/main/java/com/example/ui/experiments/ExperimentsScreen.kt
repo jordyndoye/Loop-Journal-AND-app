@@ -36,6 +36,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.domain.model.Experiment
 import com.example.domain.model.ExperimentStatus
+import com.example.domain.model.ExperimentSuggestion
 import com.example.ui.theme.BoothAmber
 import com.example.ui.theme.BoothBlack
 import com.example.ui.theme.BoothBorder
@@ -68,6 +72,8 @@ fun ExperimentsScreen(
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val active = uiState.activeExperiment
+  val suggestion = uiState.suggestedExperiment
+  var suggestionBeingModified by remember { mutableStateOf<ExperimentSuggestion?>(null) }
 
   Column(
     modifier = modifier
@@ -102,6 +108,19 @@ fun ExperimentsScreen(
         SingleVariableRuleCard()
       }
 
+      // One Suggestion from Silent Insights Draft
+      // The user keeps, modifies, or abandons it. Do not start it.
+      if (suggestion != null) {
+        item {
+          SuggestedExperimentCard(
+            suggestion = suggestion,
+            onKeep = { viewModel.keepSuggestion(suggestion) },
+            onModify = { suggestionBeingModified = suggestion },
+            onAbandon = { viewModel.abandonSuggestion(suggestion) }
+          )
+        }
+      }
+
       // Active Experiment
       if (active != null) {
         item {
@@ -114,7 +133,7 @@ fun ExperimentsScreen(
             onAbandon = { viewModel.abandonExperiment() }
           )
         }
-      } else {
+      } else if (suggestion == null) {
         item {
           NoActiveExperimentCard(onStart = { viewModel.startNewExperiment() })
         }
@@ -189,6 +208,22 @@ fun ExperimentsScreen(
         onDismiss = { viewModel.dismissModify() },
         onConfirm = { intervention, notes ->
           viewModel.confirmModify(intervention, notes)
+        }
+      )
+    }
+
+    // Modal Sheet for Modifying Suggestion
+    if (suggestionBeingModified != null) {
+      val s = suggestionBeingModified!!
+      ModifyExperimentSheet(
+        title = s.title,
+        number = s.number,
+        currentIntervention = s.singleIntervention,
+        currentNotes = "",
+        onDismiss = { suggestionBeingModified = null },
+        onConfirm = { intervention, notes ->
+          viewModel.modifySuggestion(s, intervention, notes)
+          suggestionBeingModified = null
         }
       )
     }
@@ -554,6 +589,195 @@ private fun ActiveExperimentCard(
           fontSize = 12.sp,
           color = BoothDim
         )
+      }
+    }
+  }
+}
+
+@Composable
+private fun SuggestedExperimentCard(
+  suggestion: ExperimentSuggestion,
+  onKeep: () -> Unit,
+  onModify: () -> Unit,
+  onAbandon: () -> Unit
+) {
+  Column(
+    modifier = Modifier
+      .fillMaxWidth()
+      .background(BoothSurfaceElevated, RoundedCornerShape(12.dp))
+      .border(1.dp, BoothAmber.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+      .padding(16.dp)
+      .testTag("suggested_experiment_card")
+  ) {
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.Science,
+          contentDescription = null,
+          tint = BoothAmber,
+          modifier = Modifier.size(18.dp)
+        )
+        Text(
+          text = "SUGGESTION // EXPERIMENT #${suggestion.number}",
+          fontFamily = FontFamily.SansSerif,
+          fontWeight = FontWeight.Bold,
+          fontSize = 11.sp,
+          letterSpacing = 1.sp,
+          color = BoothAmber
+        )
+      }
+
+      Box(
+        modifier = Modifier
+          .clip(RoundedCornerShape(4.dp))
+          .background(BoothAmber.copy(alpha = 0.15f))
+          .padding(horizontal = 6.dp, vertical = 2.dp)
+      ) {
+        Text(
+          text = "ONE VARIABLE",
+          fontFamily = FontFamily.SansSerif,
+          fontWeight = FontWeight.Bold,
+          fontSize = 9.sp,
+          color = BoothAmber
+        )
+      }
+    }
+
+    Spacer(modifier = Modifier.height(10.dp))
+
+    Text(
+      text = suggestion.title,
+      fontFamily = FontFamily.Serif,
+      fontWeight = FontWeight.Normal,
+      fontSize = 19.sp,
+      lineHeight = 25.sp,
+      color = BoothPaper
+    )
+
+    Spacer(modifier = Modifier.height(10.dp))
+
+    Text(
+      text = "HYPOTHESIS",
+      fontFamily = FontFamily.SansSerif,
+      fontWeight = FontWeight.SemiBold,
+      fontSize = 10.sp,
+      letterSpacing = 0.8.sp,
+      color = BoothDim
+    )
+    Spacer(modifier = Modifier.height(2.dp))
+    Text(
+      text = suggestion.hypothesis,
+      fontFamily = FontFamily.SansSerif,
+      fontSize = 12.sp,
+      lineHeight = 17.sp,
+      color = BoothPaper
+    )
+
+    Spacer(modifier = Modifier.height(10.dp))
+
+    Box(
+      modifier = Modifier
+        .fillMaxWidth()
+        .background(BoothAmber.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+        .border(1.dp, BoothAmber.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+        .padding(12.dp)
+    ) {
+      Column {
+        Text(
+          text = "SINGLE VARIABLE INTERVENTION",
+          fontFamily = FontFamily.SansSerif,
+          fontWeight = FontWeight.Bold,
+          fontSize = 10.sp,
+          letterSpacing = 0.8.sp,
+          color = BoothAmber
+        )
+        Spacer(modifier = Modifier.height(3.dp))
+        Text(
+          text = suggestion.singleIntervention,
+          fontFamily = FontFamily.SansSerif,
+          fontSize = 13.sp,
+          lineHeight = 18.sp,
+          color = BoothPaper
+        )
+      }
+    }
+
+    Spacer(modifier = Modifier.height(10.dp))
+
+    Text(
+      text = "PRIMARY METRIC: ${suggestion.metricToWatch}",
+      fontFamily = FontFamily.SansSerif,
+      fontWeight = FontWeight.Medium,
+      fontSize = 11.sp,
+      color = BoothDim
+    )
+
+    Spacer(modifier = Modifier.height(16.dp))
+
+    Text(
+      text = "DECISION // KEEP • MODIFY • ABANDON",
+      fontFamily = FontFamily.SansSerif,
+      fontWeight = FontWeight.SemiBold,
+      fontSize = 10.sp,
+      letterSpacing = 1.sp,
+      color = BoothDim
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+      Button(
+        onClick = onKeep,
+        colors = ButtonDefaults.buttonColors(containerColor = BoothAmber, contentColor = BoothInk),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier
+          .weight(1.2f)
+          .height(46.dp)
+          .testTag("btn_keep_suggestion")
+      ) {
+        Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(text = "Keep", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+      }
+
+      OutlinedButton(
+        onClick = onModify,
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = BoothPaper),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BoothBorder),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier
+          .weight(1f)
+          .height(46.dp)
+          .testTag("btn_modify_suggestion")
+      ) {
+        Icon(imageVector = Icons.Outlined.Edit, contentDescription = null, tint = BoothPaper, modifier = Modifier.size(14.dp))
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(text = "Modify", fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 12.sp)
+      }
+
+      OutlinedButton(
+        onClick = onAbandon,
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = BoothMissedGraphite),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BoothBorder),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier
+          .weight(1f)
+          .height(46.dp)
+          .testTag("btn_abandon_suggestion")
+      ) {
+        Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = BoothDim, modifier = Modifier.size(14.dp))
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(text = "Abandon", fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 12.sp, color = BoothDim)
       }
     }
   }

@@ -25,5 +25,5 @@ data class TapeSynthesis(
   val capturedDaysCount: Int,
   val totalBreakpointsCount: Int,
   val chains: List<BreakpointChain>,
-  val oneSuggestedExperiment: ExperimentSuggestion
+  val oneSuggestedExperiment: ExperimentSuggestion? = null
 )

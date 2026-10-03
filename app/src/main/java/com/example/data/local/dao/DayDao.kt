@@ -36,6 +36,9 @@ interface DayDao {
   @Query("SELECT * FROM block_outcomes WHERE dateIso = :dateIso ORDER BY intendedTime ASC")
   suspend fun getBlockOutcomes(dateIso: String): List<BlockOutcomeEntity>
 
+  @Query("SELECT * FROM block_outcomes ORDER BY dateIso ASC, intendedTime ASC")
+  suspend fun getAllBlockOutcomes(): List<BlockOutcomeEntity>
+
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun upsertBlockOutcome(outcome: BlockOutcomeEntity)
 
@@ -73,4 +76,11 @@ interface DayDao {
 
   @Query("DELETE FROM system_blocks WHERE id = :id")
   suspend fun deleteSystemBlock(id: String)
+
+  // Insights Draft
+  @Query("SELECT * FROM insights_draft WHERE id = :id")
+  suspend fun getInsightsDraft(id: String = "current_draft"): com.example.data.local.entity.InsightsDraftEntity?
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertInsightsDraft(draft: com.example.data.local.entity.InsightsDraftEntity)
 }

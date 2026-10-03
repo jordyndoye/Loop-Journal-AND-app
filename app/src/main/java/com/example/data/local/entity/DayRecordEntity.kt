@@ -2,6 +2,7 @@ package com.example.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.example.domain.model.DayRecord
 
 /**
  * Room entity for a day record.
@@ -22,3 +23,21 @@ data class DayRecordEntity(
   val sleepMood: Int? = null,
   val sleepStress: Int? = null
 )
+
+fun DayRecordEntity.toDomain(): DayRecord {
+  return DayRecord(
+    id = "rec_$dateIso",
+    dateIso = dateIso,
+    isCaptured = isCaptured,
+    isClosed = isClosed,
+    observedCount = observedCount,
+    totalCount = totalCount,
+    playbackNote = playbackNote,
+    wakeEnergy = wakeEnergy,
+    wakeMood = wakeMood,
+    wakeStress = wakeStress,
+    sleepEnergy = sleepEnergy,
+    sleepMood = sleepMood,
+    sleepStress = sleepStress
+  )
+}

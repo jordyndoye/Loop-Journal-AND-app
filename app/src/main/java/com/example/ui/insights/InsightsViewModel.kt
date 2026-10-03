@@ -6,6 +6,7 @@ import com.example.data.repository.RoutineRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -14,14 +15,26 @@ class InsightsViewModel(
 ) : ViewModel() {
 
   private val _uiState = MutableStateFlow(
-    InsightsUiState(synthesis = repository.tapeSynthesis.value)
+    InsightsUiState(
+      synthesis = repository.tapeSynthesis.value,
+      capturedDays = repository.getCapturedDayRecords(),
+      capturedDaysCount = repository.getCapturedDaysCount()
+    )
   )
   val uiState: StateFlow<InsightsUiState> = _uiState.asStateFlow()
 
   init {
     viewModelScope.launch {
-      repository.tapeSynthesis.collect { synthesis ->
-        _uiState.update { it.copy(synthesis = synthesis) }
+      combine(repository.tapeSynthesis, repository.pastRecords) { synthesis, _ ->
+        Pair(synthesis, repository.getCapturedDayRecords())
+      }.collect { (synthesis, capturedDays) ->
+        _uiState.update {
+          it.copy(
+            synthesis = synthesis,
+            capturedDays = capturedDays,
+            capturedDaysCount = repository.getCapturedDaysCount()
+          )
+        }
       }
     }
   }

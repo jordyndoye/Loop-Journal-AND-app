@@ -1,10 +1,14 @@
 package com.example.data.repository
 
 import android.content.Context
+import android.util.Log
 import com.example.data.local.dao.DayDao
 import com.example.data.local.entity.BlockOutcomeEntity
 import com.example.data.local.entity.DayRecordEntity
+import com.example.data.local.entity.InsightsDraftEntity
 import com.example.data.local.entity.JournalEntryEntity
+import com.example.data.local.entity.toDomain
+import com.example.data.service.InsightsDraftService
 import com.example.domain.model.AnchorType
 import com.example.domain.model.BlockStatus
 import com.example.domain.model.BreakpointChain
@@ -89,6 +93,12 @@ class RoutineRepository {
   private val _pastExperiments = MutableStateFlow<List<Experiment>>(emptyList())
   val pastExperiments: StateFlow<List<Experiment>> = _pastExperiments.asStateFlow()
 
+  private val _suggestedExperiment = MutableStateFlow<ExperimentSuggestion?>(null)
+  val suggestedExperiment: StateFlow<ExperimentSuggestion?> = _suggestedExperiment.asStateFlow()
+
+  @Volatile
+  private var lastDraftFingerprint: String = ""
+
   private var dayDao: DayDao? = null
   private var appContext: Context? = null
   private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -144,6 +154,35 @@ class RoutineRepository {
               sleepStress = savedDayRecord.sleepStress
             )
           }
+        }
+
+        val allSavedRecords = dao.getAllDayRecords()
+        if (allSavedRecords.isNotEmpty()) {
+          val domainRecords = allSavedRecords.map { it.toDomain() }
+          _pastRecords.value = domainRecords
+          allSavedRecords.forEach { rec ->
+            dayRecordsByDate[rec.dateIso] = rec.toDomain()
+            if (rec.isCaptured) {
+              capturedDateIsos.add(rec.dateIso)
+            }
+          }
+        }
+
+        val allOutcomes = dao.getAllBlockOutcomes()
+        if (allOutcomes.isNotEmpty()) {
+          val byDate = allOutcomes.groupBy { it.dateIso }
+          byDate.forEach { (date, outcomes) ->
+            blockOutcomesByDate[date] = outcomes.map { it.toDomain() }
+            if (outcomes.any { it.status != BlockStatus.PENDING.name }) {
+              capturedDateIsos.add(date)
+            }
+          }
+        }
+
+        val savedDraft = dao.getInsightsDraft("current_draft")
+        if (savedDraft != null) {
+          lastDraftFingerprint = savedDraft.fingerprint
+          parseAndApplyDraftJson(savedDraft.rawJson)
         }
       } catch (e: Throwable) {
         // Safe: keep existing in-memory state
@@ -692,6 +731,237 @@ class RoutineRepository {
       totalDays = durationDays,
       observationNotes = "Initiated single variable test."
     )
+  }
+
+  fun getCapturedDaysCount(): Int {
+    val fromRecords = dayRecordsByDate.values.filter { it.isCaptured }.map { it.dateIso }
+    val fromOutcomes = blockOutcomesByDate.filter { (_, blocks) -> blocks.any { it.status != BlockStatus.PENDING } }.keys
+    return (capturedDateIsos + fromRecords + fromOutcomes).size
+  }
+
+  fun getCapturedDayRecords(): List<DayRecord> {
+    val capturedDates = (capturedDateIsos +
+      dayRecordsByDate.values.filter { it.isCaptured }.map { it.dateIso } +
+      blockOutcomesByDate.filter { (_, blocks) -> blocks.any { it.status != BlockStatus.PENDING } }.keys
+    ).sortedDescending()
+
+    return capturedDates.map { dateIso ->
+      dayRecordsByDate[dateIso]
+        ?: _pastRecords.value.find { it.dateIso == dateIso }
+        ?: DayRecord(
+          id = "rec_$dateIso",
+          dateIso = dateIso,
+          isCaptured = true,
+          observedCount = blockOutcomesByDate[dateIso]?.count { it.status != BlockStatus.PENDING } ?: 0
+        )
+    }
+  }
+
+  /**
+   * After Today is visible and the database has opened, if there are at least 7 captured days
+   * and marks changed since the last draft, start one background call. Not on the launch path.
+   * Under 7 captured days, show "Not enough days yet." and do not call the model.
+   * If the call fails, times out, or the phone is offline, keep the last note and do not crash.
+   * Never write model output back into the day log.
+   */
+  suspend fun checkAndTriggerSilentInsightsDraft() {
+    val dao = dayDao ?: return
+    try {
+      val allRecords = dao.getAllDayRecords()
+      val allOutcomes = dao.getAllBlockOutcomes()
+      val outcomesByDate = allOutcomes.groupBy { it.dateIso }
+
+      val capturedDates = mutableSetOf<String>()
+      capturedDates.addAll(capturedDateIsos)
+      allRecords.filter { it.isCaptured }.forEach { capturedDates.add(it.dateIso) }
+      outcomesByDate.forEach { (date, list) ->
+        if (list.any { it.status != BlockStatus.PENDING.name }) {
+          capturedDates.add(date)
+        }
+      }
+
+      // Under 7 captured days, show “Not enough days yet.” and do not call the model.
+      if (capturedDates.size < 7) {
+        return
+      }
+
+      // Send only that user's stored days: date, block, planned time, outcome, cause, woke ratings, before-sleep ratings
+      val storedDays = capturedDates.sorted().map { date ->
+        val record = allRecords.find { it.dateIso == date }?.toDomain() ?: dayRecordsByDate[date]
+        val blocks = outcomesByDate[date]?.map { it.toDomain() } ?: blockOutcomesByDate[date] ?: emptyList()
+        InsightsDraftService.StoredDayData(
+          dateIso = date,
+          blocks = blocks,
+          record = record
+        )
+      }
+
+      val currentFingerprint = computeMarksFingerprint(storedDays)
+      if (currentFingerprint == lastDraftFingerprint && _tapeSynthesis.value != null) {
+        // Marks have not changed since last draft; do not start another call
+        return
+      }
+
+      val result = InsightsDraftService.generateSilentDraft(storedDays)
+      if (result != null) {
+        lastDraftFingerprint = currentFingerprint
+        // Save the JSON against this user
+        dao.upsertInsightsDraft(
+          InsightsDraftEntity(
+            id = "current_draft",
+            rawJson = result.rawJson,
+            fingerprint = currentFingerprint,
+            updatedAt = System.currentTimeMillis()
+          )
+        )
+        _tapeSynthesis.value = result.synthesis
+        _suggestedExperiment.value = result.suggestedExperiment
+      }
+    } catch (t: Throwable) {
+      Log.w("RoutineRepository", "Silent insights draft call completed safely", t)
+    }
+  }
+
+  private fun parseAndApplyDraftJson(rawJson: String) {
+    try {
+      val obj = org.json.JSONObject(rawJson)
+      val playback = obj.optString("playback", "")
+      val chainsList = mutableListOf<BreakpointChain>()
+      val chainJson = obj.opt("chain")
+      if (chainJson is org.json.JSONArray) {
+        for (i in 0 until chainJson.length()) {
+          val cObj = chainJson.optJSONObject(i) ?: continue
+          chainsList.add(
+            BreakpointChain(
+              id = "chain_${i + 1}",
+              title = cObj.optString("title", "Observed Friction Chain"),
+              trigger = cObj.optString("trigger", ""),
+              mechanism = cObj.optString("mechanism", ""),
+              downstreamImpact = cObj.optString("downstreamImpact", ""),
+              frequencyNote = cObj.optString("frequencyNote", "")
+            )
+          )
+        }
+      } else if (chainJson is org.json.JSONObject) {
+        chainsList.add(
+          BreakpointChain(
+            id = "chain_1",
+            title = chainJson.optString("title", "Observed Friction Chain"),
+            trigger = chainJson.optString("trigger", ""),
+            mechanism = chainJson.optString("mechanism", ""),
+            downstreamImpact = chainJson.optString("downstreamImpact", ""),
+            frequencyNote = chainJson.optString("frequencyNote", "")
+          )
+        )
+      }
+
+      var suggestion: ExperimentSuggestion? = null
+      val expObj = obj.optJSONObject("experiment")
+      if (expObj != null) {
+        val title = expObj.optString("title", "").trim()
+        val intervention = expObj.optString("singleIntervention", "").trim()
+        if (title.isNotBlank() && intervention.isNotBlank()) {
+          suggestion = ExperimentSuggestion(
+            id = "sug_draft",
+            number = (_pastExperiments.value.maxOfOrNull { it.number } ?: 0) + 1,
+            title = title,
+            hypothesis = expObj.optString("hypothesis", "Testing single variable to address friction."),
+            singleIntervention = intervention,
+            metricToWatch = expObj.optString("metricToWatch", "Routine completion"),
+            targetDurationDays = 7
+          )
+        }
+      }
+
+      _tapeSynthesis.value = TapeSynthesis(
+        playbackNote = playback,
+        daysAnalyzed = capturedDateIsos.size,
+        capturedDaysCount = capturedDateIsos.size,
+        totalBreakpointsCount = chainsList.size,
+        chains = chainsList,
+        oneSuggestedExperiment = suggestion
+      )
+      _suggestedExperiment.value = suggestion
+    } catch (e: Throwable) {
+      Log.w("RoutineRepository", "Failed to parse saved draft JSON", e)
+    }
+  }
+
+  private fun computeMarksFingerprint(days: List<InsightsDraftService.StoredDayData>): String {
+    val sb = StringBuilder()
+    for (day in days) {
+      sb.append(day.dateIso).append(";")
+      day.record?.let {
+        sb.append(it.wakeEnergy).append(",").append(it.wakeMood).append(",").append(it.wakeStress).append(";")
+        sb.append(it.sleepEnergy).append(",").append(it.sleepMood).append(",").append(it.sleepStress).append(";")
+      }
+      for (b in day.blocks) {
+        sb.append(b.id).append("=").append(b.plannedTime).append("=").append(b.status.name).append("=").append(b.cause ?: "").append(";")
+      }
+      sb.append("|")
+    }
+    return try {
+      val md = java.security.MessageDigest.getInstance("SHA-256")
+      val digest = md.digest(sb.toString().toByteArray(Charsets.UTF_8))
+      digest.fold("") { str, it -> str + "%02x".format(it) }
+    } catch (_: Exception) {
+      sb.toString().hashCode().toString()
+    }
+  }
+
+  fun keepSuggestedExperiment(suggestion: ExperimentSuggestion) {
+    val kept = Experiment(
+      id = "exp_${suggestion.number}",
+      number = suggestion.number,
+      title = suggestion.title,
+      hypothesis = suggestion.hypothesis,
+      singleIntervention = suggestion.singleIntervention,
+      metricToWatch = suggestion.metricToWatch,
+      status = ExperimentStatus.KEPT,
+      dayCount = 0,
+      totalDays = suggestion.targetDurationDays,
+      observationNotes = "Kept intervention: ${suggestion.singleIntervention}"
+    )
+    _pastExperiments.update { listOf(kept) + it.filterNot { exp -> exp.id == kept.id } }
+    _suggestedExperiment.value = null
+  }
+
+  fun modifySuggestedExperiment(
+    suggestion: ExperimentSuggestion,
+    newIntervention: String,
+    notes: String
+  ) {
+    val modified = Experiment(
+      id = "exp_${suggestion.number}",
+      number = suggestion.number,
+      title = suggestion.title,
+      hypothesis = suggestion.hypothesis,
+      singleIntervention = newIntervention.ifBlank { suggestion.singleIntervention },
+      metricToWatch = suggestion.metricToWatch,
+      status = ExperimentStatus.MODIFIED,
+      dayCount = 0,
+      totalDays = suggestion.targetDurationDays,
+      observationNotes = notes.ifBlank { "Modified hypothesis/intervention." }
+    )
+    _pastExperiments.update { listOf(modified) + it.filterNot { exp -> exp.id == modified.id } }
+    _suggestedExperiment.value = null
+  }
+
+  fun abandonSuggestedExperiment(suggestion: ExperimentSuggestion, notes: String) {
+    val abandoned = Experiment(
+      id = "exp_${suggestion.number}",
+      number = suggestion.number,
+      title = suggestion.title,
+      hypothesis = suggestion.hypothesis,
+      singleIntervention = suggestion.singleIntervention,
+      metricToWatch = suggestion.metricToWatch,
+      status = ExperimentStatus.ABANDONED,
+      dayCount = 0,
+      totalDays = suggestion.targetDurationDays,
+      observationNotes = notes.ifBlank { "Abandoned suggestion." }
+    )
+    _pastExperiments.update { listOf(abandoned) + it.filterNot { exp -> exp.id == abandoned.id } }
+    _suggestedExperiment.value = null
   }
 
   companion object {
