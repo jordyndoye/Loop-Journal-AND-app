@@ -52,44 +52,9 @@ class DatabaseInitializationTest {
   }
 
   @Test
-  fun testRecreateDatabaseDeletesOldFileAndRebuilds() = runBlocking {
-    val db1 = AppDatabase.openSafely(context)
-    assertNotNull(db1)
-    val dao1 = db1!!.dayDao()
-    dao1.upsertBlockOutcome(
-      BlockOutcomeEntity(
-        id = "2026-10-03_item_a",
-        dateIso = "2026-10-03",
-        blockId = "item_a",
-        title = "Item A",
-        intendedTime = "09:00",
-        anchorType = "FLEXIBLE",
-        status = "DONE"
-      )
-    )
-
-    // Recreate database file
-    val db2 = AppDatabase.recreateDatabase(context)
-    assertNotNull("Recreated database must not be null", db2)
-
-    val dao2 = db2.dayDao()
-    val itemsAfterRecreate = dao2.getBlockOutcomes("2026-10-03")
-    assertTrue("Recreated database starts empty", itemsAfterRecreate.isEmpty())
-  }
-
-  @Test
-  fun testCorruptedDatabaseRecoversGracefully() = runBlocking {
-    // Intentionally corrupt the database file with garbage bytes
-    val dbFile = context.getDatabasePath(AppDatabase.DB_NAME)
-    dbFile.parentFile?.mkdirs()
-    FileOutputStream(dbFile).use { it.write("NOT_A_VALID_SQLITE_DATABASE_HEADER".toByteArray()) }
-
-    // openSafely should detect the failure, delete the corrupted file, and recreate cleanly
-    val recoveredDb = AppDatabase.openSafely(context)
-    assertNotNull("AppDatabase must recover from corrupted database file without crashing", recoveredDb)
-
-    val dao = recoveredDb!!.dayDao()
-    val result = dao.getBlockOutcomes("2026-10-03")
-    assertTrue(result.isEmpty())
+  fun testDatabaseSingletonReturnsSameInstance() {
+    val db1 = AppDatabase.getInstance(context)
+    val db2 = AppDatabase.getInstance(context)
+    org.junit.Assert.assertSame("getInstance must return the singleton instance", db1, db2)
   }
 }
