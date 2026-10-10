@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
     <style name="Theme.MyApplication" parent="android:Theme.DeviceDefault.NoActionBar">
         <item name="android:windowBackground">@color/booth_black</item>
         <item name="android:statusBarColor">@color/booth_black</item>
         <item name="android:navigationBarColor">@color/booth_black</item>
         <!-- Completely remove the app launcher icon from the system splash screen -->
-        <item name="android:windowSplashScreenBackground" tools:targetApi="s">@color/booth_black</item>
-        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">@android:color/transparent</item>
+        <item name="android:windowSplashScreenBackground">@color/booth_black</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+        <item name="android:windowSplashScreenAnimationDuration">0</item>
     </style>
 </resources>

@@ -2,6 +2,7 @@ package com.example.ui.journal
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.repository.JournalRepository
 import com.example.data.repository.RoutineRepository
 import com.example.domain.model.BlockStatus
 import com.example.util.DateTimeUtils
@@ -13,7 +14,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class JournalViewModel(
-  private val repository: RoutineRepository = RoutineRepository.instance
+  private val repository: RoutineRepository = RoutineRepository.instance,
+  private val journalRepository: JournalRepository? = repository.journalRepository
 ) : ViewModel() {
 
   private val _uiState = MutableStateFlow(buildInitialState())
@@ -129,4 +131,20 @@ class JournalViewModel(
   fun dismissConfirmation() {
     _uiState.update { it.copy(showCommitConfirmation = false) }
   }
+
+  fun saveDailyObservation(
+    date: String = repository.activeDateIso.value,
+    reflection: String = _uiState.value.wentToPlanInput,
+    breakPoints: String = _uiState.value.inTheWayInput
+  ) {
+    viewModelScope.launch {
+      journalRepository?.saveJournalEntry(
+        date = date,
+        reflection = reflection,
+        breakPoints = breakPoints
+      )
+    }
+  }
+
+  fun getJournalRepository(): JournalRepository? = journalRepository
 }

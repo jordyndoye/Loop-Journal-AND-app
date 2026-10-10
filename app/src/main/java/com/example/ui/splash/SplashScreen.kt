@@ -38,7 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.components.CircularTapeReel
+import com.example.ui.components.FilmReelAnimation
 import com.example.ui.theme.BoothAmber
 import com.example.ui.theme.BoothBlack
 import com.example.ui.theme.BoothBorder
@@ -82,11 +82,11 @@ fun SplashScreen(
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.Center
     ) {
-      // Analog 7-segment tape reel
-      CircularTapeReel(
-        capturedCount = litSegments,
-        totalSegments = 7,
-        reelSize = 150.dp
+      // Hero vintage film reel animation
+      FilmReelAnimation(
+        reelSize = 160.dp,
+        reelColor = BoothAmber,
+        backgroundColor = BoothBlack
       )
 
       Spacer(modifier = Modifier.height(32.dp))

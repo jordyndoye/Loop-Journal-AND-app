@@ -100,6 +100,8 @@ class RoutineRepository {
   private var lastDraftFingerprint: String = ""
 
   private var dayDao: DayDao? = null
+  var journalRepository: JournalRepository? = null
+    private set
   private var appContext: Context? = null
   private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -113,6 +115,7 @@ class RoutineRepository {
 
   fun initRoom(dao: DayDao) {
     dayDao = dao
+    journalRepository = JournalRepository(dao)
     ioScope.launch {
       try {
 
@@ -290,12 +293,16 @@ class RoutineRepository {
     ioScope.launch {
       try {
         dao.upsertJournalEntry(
-          JournalEntryEntity(
-            dateIso = _activeDateIso.value,
-            wentToPlan = rec.playbackNote,
+          com.example.data.local.entity.JournalEntry(
+            date = _activeDateIso.value,
+            reflection = rec.playbackNote.ifBlank { rec.wentToPlan },
+            breakPoints = rec.inTheWay,
+            wentToPlan = rec.wentToPlan.ifBlank { rec.playbackNote },
+            didNotGoToPlan = rec.didNotGoToPlan,
+            inTheWay = rec.inTheWay,
             energyRating = rec.energyRating,
             stressRating = rec.stressRating,
-            isClosed = true,
+            isClosed = rec.isClosed,
             closedAtTime = DateTimeUtils.currentTime24()
           )
         )
