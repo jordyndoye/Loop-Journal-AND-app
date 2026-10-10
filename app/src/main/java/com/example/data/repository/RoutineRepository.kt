@@ -115,6 +115,24 @@ class RoutineRepository {
     dayDao = dao
     ioScope.launch {
       try {
+
+        val savedSystem = dao.getSystemBlocks()
+        if (savedSystem.isNotEmpty()) {
+          _systemBlocks.value = savedSystem.map { entity ->
+            DayBlock(
+              id = entity.id,
+              title = entity.title,
+              intendedTime = entity.intendedTime,
+              plannedTime = entity.intendedTime,
+              anchorType = try { AnchorType.valueOf(entity.anchorType) } catch (_: Exception) { AnchorType.FLEXIBLE },
+              note = entity.note,
+              remindMe = entity.remindMe
+            )
+          }
+        } else {
+          persistSystemBlocks()
+        }
+
         val todayIso = _activeDateIso.value
         val saved = dao.getBlockOutcomes(todayIso)
         if (saved.isNotEmpty()) {
@@ -237,6 +255,31 @@ class RoutineRepository {
         dao.upsertBlockOutcome(block.toEntity(_activeDateIso.value))
       } catch (e: Exception) {
         // Silent
+      }
+    }
+  }
+
+
+  private fun persistSystemBlocks() {
+    val dao = dayDao ?: return
+    val blocks = _systemBlocks.value
+    ioScope.launch {
+      try {
+        dao.upsertSystemBlocks(
+          blocks.mapIndexed { index, block ->
+            com.example.data.local.entity.SystemBlockEntity(
+              id = block.id,
+              title = block.title,
+              intendedTime = block.intendedTime,
+              anchorType = block.anchorType.name,
+              sortOrder = index,
+              note = block.note,
+              remindMe = block.remindMe
+            )
+          }
+        )
+      } catch (e: Exception) {
+        Log.w("RoutineRepository", "Failed to save system blocks", e)
       }
     }
   }
@@ -400,6 +443,7 @@ class RoutineRepository {
       updated
     }
     blockOutcomesByDate[_activeDateIso.value] = _blocks.value
+    persistSystemBlocks()
     syncTodayReelStatus()
   }
 
@@ -457,6 +501,7 @@ class RoutineRepository {
       }
     }
     blockOutcomesByDate[_activeDateIso.value] = _blocks.value
+    persistSystemBlocks()
     syncTodayReelStatus()
   }
 
@@ -468,6 +513,7 @@ class RoutineRepository {
       currentList.filterNot { it.id == blockId && !it.anchorType.isSpine }
     }
     blockOutcomesByDate[_activeDateIso.value] = _blocks.value
+    persistSystemBlocks()
     syncTodayReelStatus()
   }
 
@@ -512,6 +558,7 @@ class RoutineRepository {
       listOf(closed) + current.filterNot { it.dateIso == dateIso }
     }
 
+    persistDayRecordToRoom(closed)
     refreshWeekReel()
   }
 
