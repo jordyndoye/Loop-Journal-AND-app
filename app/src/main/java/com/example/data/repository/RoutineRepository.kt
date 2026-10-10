@@ -8,6 +8,7 @@ import com.example.data.local.entity.DayRecordEntity
 import com.example.data.local.entity.InsightsDraftEntity
 import com.example.data.local.entity.JournalEntryEntity
 import com.example.data.local.entity.toDomain
+import com.example.data.service.CloudMirror
 import com.example.data.service.InsightsDraftService
 import com.example.domain.model.AnchorType
 import com.example.domain.model.BlockStatus
@@ -231,6 +232,7 @@ class RoutineRepository {
     val dao = dayDao ?: return
     ioScope.launch {
       try {
+        CloudMirror.saveDay(rec)
         dao.upsertDayRecord(
           DayRecordEntity(
             dateIso = rec.dateIso,
@@ -255,6 +257,7 @@ class RoutineRepository {
     val dao = dayDao ?: return
     ioScope.launch {
       try {
+        CloudMirror.saveBlock(block, _activeDateIso.value)
         dao.upsertBlockOutcome(block.toEntity(_activeDateIso.value))
       } catch (e: Exception) {
         // Silent
@@ -268,6 +271,7 @@ class RoutineRepository {
     val blocks = _systemBlocks.value
     ioScope.launch {
       try {
+        CloudMirror.saveSystem(blocks)
         dao.upsertSystemBlocks(
           blocks.mapIndexed { index, block ->
             com.example.data.local.entity.SystemBlockEntity(
