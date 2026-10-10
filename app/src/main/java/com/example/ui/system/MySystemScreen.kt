@@ -64,6 +64,7 @@ import com.example.ui.theme.BoothMissedGraphite
 import com.example.ui.theme.BoothPaper
 import com.example.ui.theme.BoothSurface
 import com.example.ui.theme.BoothSurfaceElevated
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -183,6 +184,21 @@ fun MySystemScreen(
             onTimeClick = { blockForTimePicker = it },
             onToggleReminder = { viewModel.toggleBlockReminder(block.id, it) }
           )
+        }
+      }
+
+      item {
+        Spacer(modifier = Modifier.height(18.dp))
+        Button(
+          onClick = { FirebaseAuth.getInstance().signOut() },
+          modifier = Modifier.fillMaxWidth().height(48.dp),
+          colors = ButtonDefaults.buttonColors(
+            containerColor = BoothSurface,
+            contentColor = BoothPaper
+          ),
+          border = androidx.compose.foundation.BorderStroke(1.dp, BoothBorder)
+        ) {
+          Text("Sign out")
         }
       }
     }
