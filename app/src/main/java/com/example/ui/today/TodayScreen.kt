@@ -72,6 +72,8 @@ fun TodayScreen(
     withContext(Dispatchers.IO) {
       val db = com.example.data.local.AppDatabase.openSafely(context)
       if (db != null) {
+        com.example.data.service.CloudMirror.restoreInto(db.dayDao())
+        com.example.data.repository.RoutineRepository.instance.initRoom(db.dayDao())
         com.example.data.repository.RoutineRepository.instance.checkAndTriggerSilentInsightsDraft()
       }
     }
